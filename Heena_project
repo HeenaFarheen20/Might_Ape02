@@ -1,0 +1,85 @@
+SELECT * FROM customer_value_nz;
+
+#--Count of total rows----
+select count(*) from customer_value_nz;
+ 
+ #----Get the recent purchase date as customer id-----
+ select customer_id as Customer,
+ max(order_date) as Recent_purchase from customer_value_nz
+ group by customer_id;
+ 
+ #----Top 5 Customers who spent maximum recently----
+ SELECT * FROM customer_value_nz 
+ order by total_order_value desc
+ limit 5;
+ 
+ #-- To get the recency,frequency and monetary points (RFM Analysis)----
+
+ with Base as(
+ SELECT 
+    customer_id AS Customer_id,  
+    MAX(order_date) AS Recent_purchase,  
+    DATEDIFF(CURRENT_TIMESTAMP, MAX(order_date)) AS recency_score,  
+    COUNT(order_number) AS frequency_score,  
+    round(SUM(total_order_value)) AS monetary_score  
+FROM 
+    customer_value_nz  
+GROUP BY 
+    customer_id
+)
+select 
+    customer_id,
+    recency_score,
+    frequency_score,
+    monetary_score,
+	ntile(5) over (order by recency_score desc) as R,
+    ntile(5) over (order by frequency_score asc) as F,
+    ntile(5) over (order by monetary_score asc) as M
+from Base
+
+
+#---To get the revenue per customer-----
+
+with Base as(
+ SELECT 
+    customer_id AS Customer_id,  
+    MAX(order_date) AS Recent_purchase,  
+    DATEDIFF(CURRENT_TIMESTAMP, MAX(order_date)) AS recency_score,  
+    COUNT(order_number) AS frequency_score,  
+    round(SUM(total_order_value)) AS monetary_score  
+FROM 
+    customer_value_nz  
+GROUP BY 
+    customer_id
+),
+RFM_score as
+(
+select 
+    customer_id,
+    recency_score,
+    frequency_score,
+    monetary_score,
+	ntile(5) over (order by recency_score desc) as R,
+    ntile(5) over (order by frequency_score asc) as F,
+    ntile(5) over (order by monetary_score asc) as M
+from Base
+)
+(
+select
+(R + F + M)/3 as RFM_group,
+count(rfm.customer_id)as customer_count,
+sum(base.monetary_score) as total_revenue,
+Round(sum(base.monetary_score)/count(rfm.customer_id),2) as avg_revenue_per_customer
+from RFM_score as rfm
+inner join base on base.customer_id = rfm.customer_id
+group by (R + F + M) / 3
+order by RFM_group desc
+)
+
+
+
+#--Suggestions---
+1. Through this analysis, the company will be able to identify which customers are their long-term customers
+and which customers are one-time buyers.
+2. Through this analysis, the company will send advertisements, messages, emails related to products,
+and offer discounts to customers to engage them more in online shopping.
